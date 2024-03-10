@@ -153,3 +153,9 @@ typedef NS_ENUM(NSInteger, ArrowPosition){
 - (void)didDismissTip:(RCEasyTipView *)tipView;
 
 @end
+
+@interface RCEasyTipOverlayView : UIView
+
+@property (nonatomic, copy) void (^didTap)(void);
+
+@end
