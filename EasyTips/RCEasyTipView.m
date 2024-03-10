@@ -109,7 +109,7 @@ _Pragma("clang diagnostic pop")
 @property (nonatomic, strong) RCEasyTipPreferences *preferences;
 
 @property (nonatomic, weak) UIView *presentingView;
-@property (nonatomic, strong) UIView *dismissOverlay;
+@property (nonatomic, strong) RCEasyTipOverlayView *dismissOverlay;
 @property (nonatomic, assign) CGPoint arrowTip;
 @property (nonatomic, weak) UIView *parentView;
 
@@ -441,16 +441,11 @@ _Pragma("clang diagnostic pop")
     }
 }
 
-- (void)handleTap:(UIGestureRecognizer *)gesture {
-    if (gesture.state == UIGestureRecognizerStateEnded) {
-        weakify(self);
-        [self dismissWithCompletion:^{
-            strongify(self);
-            //remove all the gsture here
-            [self removeGestureRecognizer:gesture];
-            [self.dismissOverlay removeGestureRecognizer:gesture];
-        }];
-    }
+- (void)handleTap
+{
+    [self dismissWithCompletion:^{
+        
+    }];
 }
 
 - (void)showAnimated:(BOOL)animated forView:(UIView *)view withinSuperView:(UIView *)superView {
@@ -471,22 +466,31 @@ _Pragma("clang diagnostic pop")
     self.transform = initialTransform;
     self.alpha = initialAlpha;
     
-    UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
-    [self addGestureRecognizer:tapGesture];
-    
     [superView addSubview:self];
     
     if (_preferences.shouldDismissOnTouchOutside) {
         if (self.window) {
-            UIView *dismissOverLay = [[UIView alloc] initWithFrame:self.window.bounds];
+            RCEasyTipOverlayView *dismissOverLay = [[RCEasyTipOverlayView alloc] initWithFrame:self.window.bounds];
             dismissOverLay.userInteractionEnabled = YES;
-            [dismissOverLay addGestureRecognizer:tapGesture];
             dismissOverLay.autoresizingMask = UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth;
             [self.window addSubview:dismissOverLay];
+            
+            weakify(self);
+            
+            dismissOverLay.didTap = ^{
+                strongify(self);
+                [self handleTap];
+            };
+            
             _dismissOverlay = dismissOverLay;
         }
     }
-    [self.window bringSubviewToFront:self];
+    else {
+        UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap)];
+        [self addGestureRecognizer:tapGesture];
+        
+        [self.window bringSubviewToFront:self];
+    }
     
     if (_delegate && [_delegate respondsToSelector:@selector(willShowTip:)]) {
         [_delegate willShowTip:self];
@@ -555,3 +559,14 @@ _Pragma("clang diagnostic pop")
 
 @end
 
+@implementation RCEasyTipOverlayView
+
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
+{
+    if (self.didTap) {
+        self.didTap();
+    }
+    return NO;
+}
+
+@end
