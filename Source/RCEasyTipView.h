@@ -86,6 +86,7 @@ typedef NS_ENUM(NSInteger, ArrowPosition){
  Text to be displayed inside RCEasyTipView
  */
 @property (nonatomic, strong) NSString *text;
+@property (nonatomic, strong) NSAttributedString *attributedText;
 
 /**
  Delegate for RCEasyTipView
@@ -107,6 +108,7 @@ typedef NS_ENUM(NSInteger, ArrowPosition){
  @return instancetype for RCEasyTipView
  */
 - (instancetype)initWithText:(NSString *)text;
+- (instancetype)initWithAttributedText:(NSAttributedString *)attributedText;
 
 /**
  Custom RCEasyTipPreferences initializer for RCEasyTipView with text to displayed inside RCEasyTipView
@@ -115,7 +117,8 @@ typedef NS_ENUM(NSInteger, ArrowPosition){
  @param text Text to be displayed inside RCEasyTipView
  @return instancetype for RCEasyTipView
  */
-- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences andText:(NSString *)text;
+- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences text:(NSString *)text;
+- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences attributedText:(NSAttributedString *)attributedText;
 
 /**
  Presents an EasyTipView pointing to a particular UIBarItem instance within the specified superview
@@ -151,11 +154,5 @@ typedef NS_ENUM(NSInteger, ArrowPosition){
 
 - (void)willDismissTip:(RCEasyTipView *)tipView;
 - (void)didDismissTip:(RCEasyTipView *)tipView;
-
-@end
-
-@interface RCEasyTipOverlayView : UIView
-
-@property (nonatomic, copy) void (^didTap)(void);
 
 @end
