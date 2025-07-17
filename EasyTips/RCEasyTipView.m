@@ -109,7 +109,7 @@ _Pragma("clang diagnostic pop")
 @property (nonatomic, strong) RCEasyTipPreferences *preferences;
 
 @property (nonatomic, weak) UIView *presentingView;
-@property (nonatomic, strong) RCEasyTipOverlayView *dismissOverlay;
+@property (nonatomic, strong) UIView *dismissOverlay;
 @property (nonatomic, assign) CGPoint arrowTip;
 @property (nonatomic, weak) UIView *parentView;
 
@@ -176,7 +176,16 @@ _Pragma("clang diagnostic pop")
     return self;
 }
 
-- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences andText:(NSString *)text {
+- (instancetype)initWithAttributedText:(NSAttributedString *)attributedText {
+    self = [super init];
+    if(self) {
+        _attributedText = attributedText;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleRotation:) name:UIDeviceOrientationDidChangeNotification object:nil];
+    }
+    return self;
+}
+
+- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences text:(NSString *)text {
     self = [super init];
     if (self) {
         _preferences = preferences;
@@ -187,6 +196,16 @@ _Pragma("clang diagnostic pop")
     return self;
 }
 
+- (instancetype)initWithPreferences:(RCEasyTipPreferences *)preferences attributedText:(NSAttributedString *)attributedText {
+    self = [super init];
+    if (self) {
+        _preferences = preferences;
+        _attributedText = attributedText;
+        self.backgroundColor = [UIColor clearColor];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleRotation:) name:UIDeviceOrientationDidChangeNotification object:nil];
+    }
+    return self;
+}
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -238,9 +257,9 @@ _Pragma("clang diagnostic pop")
         case Top:
         case Bottom:
             if (frame.size.width < refViewFrame.size.width) {
-                arrowTipXOrigin = [self getContentSize].width / 2;
+                arrowTipXOrigin = [self getContentSize].width/2;
             } else {
-                arrowTipXOrigin = fabs(frame.origin.x - refViewFrame.origin.x) + refViewFrame.size.width / 2;
+                arrowTipXOrigin = fabs(frame.origin.x - refViewFrame.origin.x) + refViewFrame.size.width/2;
             }
             
             _arrowTip = CGPointMake(arrowTipXOrigin, position == Bottom ? [self getContentSize].height - _preferences.positioning.bubbleVInset : _preferences.positioning.bubbleVInset);
@@ -248,9 +267,9 @@ _Pragma("clang diagnostic pop")
         case Right:
         case Left:
             if (frame.size.height < refViewFrame.size.height) {
-                arrowTipXOrigin = [self getContentSize].height / 2;
+                arrowTipXOrigin = [self getContentSize].height/2;
             } else {
-                arrowTipXOrigin = fabs(frame.origin.y - refViewFrame.origin.y) + refViewFrame.size.height / 2;
+                arrowTipXOrigin = fabs(frame.origin.y - refViewFrame.origin.y) + refViewFrame.size.height/2;
             }
             _arrowTip = CGPointMake(_preferences.drawing.arrowPostion == Left ? _preferences.positioning.bubbleVInset : [self getContentSize].width - _preferences.positioning.bubbleVInset,arrowTipXOrigin);
             break;
@@ -262,25 +281,25 @@ _Pragma("clang diagnostic pop")
     CGFloat xOrigin = 0;
     CGFloat yOrigin = 0;
     
-    CGPoint center = CGPointMake(refViewFrame.origin.x + refViewFrame.size.width / 2, refViewFrame.origin.y + refViewFrame.size.height / 2);
+    CGPoint center = CGPointMake(refViewFrame.origin.x + refViewFrame.size.width/2, refViewFrame.origin.y + refViewFrame.size.height/2);
     
     switch (position) {
         case Any:
         case Top:
-            xOrigin = center.x - [self getContentSize].width / 2;
+            xOrigin = center.x - [self getContentSize].width/2;
             yOrigin = refViewFrame.origin.y + refViewFrame.size.height;
             break;
         case Bottom:
-            xOrigin = center.x - [self getContentSize].width / 2;
+            xOrigin = center.x - [self getContentSize].width/2;
             yOrigin = refViewFrame.origin.y - [self getContentSize].height;
             break;
         case Right:
             xOrigin = refViewFrame.origin.x - [self getContentSize].width;
-            yOrigin = center.y - [self getContentSize].height / 2;
+            yOrigin = center.y - [self getContentSize].height/2;
             break;
         case Left:
             xOrigin = refViewFrame.origin.x + refViewFrame.size.width;
-            yOrigin = refViewFrame.origin.y - [self getContentSize].height / 2;
+            yOrigin = refViewFrame.origin.y - [self getContentSize].height/2;
             break;
     }
     
@@ -306,9 +325,15 @@ _Pragma("clang diagnostic pop")
 #pragma mark - Helpers
 
 - (CGSize)getTextSize {
-    NSDictionary *attributes = @{NSFontAttributeName:_preferences.drawing.font};
+    CGSize textSize = CGSizeZero;
     
-    CGSize textSize = [self.text boundingRectWithSize:CGSizeMake(_preferences.positioning.maxWidth, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin attributes:attributes context:nil].size;
+    if (self.attributedText) {
+        textSize = [self.attributedText boundingRectWithSize:CGSizeMake(_preferences.positioning.maxWidth, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin context:nil].size;
+    }
+    else {
+        NSDictionary *attributes = @{NSFontAttributeName:_preferences.drawing.font};
+        textSize = [self.text boundingRectWithSize:CGSizeMake(_preferences.positioning.maxWidth, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin attributes:attributes context:nil].size;
+    }
     
     textSize.width = ceil(textSize.width);
     textSize.height = ceil(textSize.height);
@@ -321,7 +346,9 @@ _Pragma("clang diagnostic pop")
 }
 
 - (CGSize)getContentSize {
-    return CGSizeMake([self getTextSize].width + _preferences.positioning.textHInset * 2 + _preferences.positioning.bubbleHInset * 2, [self getTextSize].height + _preferences.positioning.textVInset * 2 + _preferences.positioning.bubbleVInset * 2 + _preferences.drawing.arrowHeight);
+    CGSize textSize = [self getTextSize];
+    return CGSizeMake(textSize.width + _preferences.positioning.textHInset * 2 + _preferences.positioning.bubbleHInset * 2,
+                      textSize.height + _preferences.positioning.textVInset * 2 + _preferences.positioning.bubbleVInset * 2 + _preferences.drawing.arrowHeight);
 }
 
 - (BOOL)isFrame:(CGRect)frame forReferenceViewFrame:(CGRect)refViewFrame {
@@ -343,23 +370,23 @@ _Pragma("clang diagnostic pop")
         case Any:
         case Top:
         case Bottom:
-            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x - arrowWidth / 2, _arrowTip.y + (position == Bottom ? -1 : 1) * arrowHeight);
+            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x - arrowWidth/2, _arrowTip.y + (position == Bottom ? -1 : 1) * arrowHeight);
             if (position == Bottom) {
                 [self drawBottomBubbleShapeWithFrame:bubbleFrame cornerRadius:cornerRadius path:contourPath];
             } else {
                 [self drawTopBubbleShapeWithFrame:bubbleFrame cornerRadius:cornerRadius path:contourPath];
             }
-            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + arrowWidth / 2, _arrowTip.y + (position == Bottom ? -1 : 1)* arrowHeight);
+            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + arrowWidth/2, _arrowTip.y + (position == Bottom ? -1 : 1)* arrowHeight);
             break;
         case Right:
         case Left:
-            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + (position == Right ? -1 : 1) * arrowHeight, _arrowTip.y - arrowWidth / 2);
+            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + (position == Right ? -1 : 1) * arrowHeight, _arrowTip.y - arrowWidth/2);
             if (position == Right) {
                 [self drawRightBubbleShapeWithFrame:bubbleFrame cornerRadius:cornerRadius path:contourPath];
             } else {
                 [self drawLeftBubbleShapeWithFrame:bubbleFrame cornerRadius:cornerRadius path:contourPath];
             }
-            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + (position == Right ? -1 : 1) * arrowHeight, _arrowTip.y + arrowWidth / 2);
+            CGPathAddLineToPoint(contourPath, &CGAffineTransformIdentity, _arrowTip.x + (position == Right ? -1 : 1) * arrowHeight, _arrowTip.y + arrowWidth/2);
             break;
     }
     CGPathCloseSubpath(contourPath);
@@ -416,13 +443,23 @@ _Pragma("clang diagnostic pop")
 }
 
 - (void)drawTextWithFrame:(CGRect)bubbleFrame andContext:(CGContextRef)context {
-    NSMutableParagraphStyle *paragraphStyle = [NSMutableParagraphStyle new];
-    paragraphStyle.alignment = _preferences.drawing.textAlignment;
-    paragraphStyle.lineBreakMode = NSLineBreakByWordWrapping;
+    CGSize textSize = [self getTextSize];
     
-    CGRect textRect = CGRectMake(bubbleFrame.origin.x + (bubbleFrame.size.width - [self getTextSize].width) / 2, bubbleFrame.origin.y + (bubbleFrame.size.height - [self getTextSize].height) / 2, [self getTextSize].width, [self getTextSize].height);
+    CGRect textRect = CGRectMake(bubbleFrame.origin.x + (bubbleFrame.size.width - textSize.width)/2,
+                                 bubbleFrame.origin.y + (bubbleFrame.size.height - textSize.height)/2,
+                                 textSize.width,
+                                 textSize.height);
     
-    [self.text drawInRect:textRect withAttributes:@{NSFontAttributeName:_preferences.drawing.font, NSForegroundColorAttributeName: _preferences.drawing.foregroundColor, NSParagraphStyleAttributeName: paragraphStyle}];
+    if (self.attributedText) {
+        [self.attributedText drawInRect:textRect];
+    }
+    else {
+        NSMutableParagraphStyle *paragraphStyle = [NSMutableParagraphStyle new];
+        paragraphStyle.alignment = _preferences.drawing.textAlignment;
+        paragraphStyle.lineBreakMode = NSLineBreakByWordWrapping;
+        
+        [self.text drawInRect:textRect withAttributes:@{NSFontAttributeName:_preferences.drawing.font, NSForegroundColorAttributeName: _preferences.drawing.foregroundColor, NSParagraphStyleAttributeName: paragraphStyle}];
+    }
 }
 
 #pragma mark - Actions
@@ -441,11 +478,16 @@ _Pragma("clang diagnostic pop")
     }
 }
 
-- (void)handleTap
-{
-    [self dismissWithCompletion:^{
-        
-    }];
+- (void)handleTap:(UIGestureRecognizer *)gesture {
+    if (gesture.state == UIGestureRecognizerStateEnded) {
+        weakify(self);
+        [self dismissWithCompletion:^{
+            strongify(self);
+            //remove all the gsture here
+            [self removeGestureRecognizer:gesture];
+            [self.dismissOverlay removeGestureRecognizer:gesture];
+        }];
+    }
 }
 
 - (void)showAnimated:(BOOL)animated forView:(UIView *)view withinSuperView:(UIView *)superView {
@@ -466,31 +508,22 @@ _Pragma("clang diagnostic pop")
     self.transform = initialTransform;
     self.alpha = initialAlpha;
     
+    UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
+    [self addGestureRecognizer:tapGesture];
+    
     [superView addSubview:self];
     
     if (_preferences.shouldDismissOnTouchOutside) {
         if (self.window) {
-            RCEasyTipOverlayView *dismissOverLay = [[RCEasyTipOverlayView alloc] initWithFrame:self.window.bounds];
+            UIView *dismissOverLay = [[UIView alloc] initWithFrame:self.window.bounds];
             dismissOverLay.userInteractionEnabled = YES;
+            [dismissOverLay addGestureRecognizer:tapGesture];
             dismissOverLay.autoresizingMask = UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth;
             [self.window addSubview:dismissOverLay];
-            
-            weakify(self);
-            
-            dismissOverLay.didTap = ^{
-                strongify(self);
-                [self handleTap];
-            };
-            
             _dismissOverlay = dismissOverLay;
         }
     }
-    else {
-        UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap)];
-        [self addGestureRecognizer:tapGesture];
-        
-        [self.window bringSubviewToFront:self];
-    }
+    [self.window bringSubviewToFront:self];
     
     if (_delegate && [_delegate respondsToSelector:@selector(willShowTip:)]) {
         [_delegate willShowTip:self];
@@ -555,18 +588,6 @@ _Pragma("clang diagnostic pop")
                          [self removeFromSuperview];
                          self.transform = CGAffineTransformIdentity;
                      }];
-}
-
-@end
-
-@implementation RCEasyTipOverlayView
-
-- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
-{
-    if (self.didTap) {
-        self.didTap();
-    }
-    return NO;
 }
 
 @end
